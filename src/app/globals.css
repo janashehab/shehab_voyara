@@ -1,1 +1,90 @@
 @import "tailwindcss";
+
+@theme {
+  --color-canvas: #091b25;
+  --color-surface: #123a43;
+  --color-surface-raised: #224950;
+  --color-ink: #f6f4ef;
+  --color-ink-muted: #c5d0cc;
+  --color-mist: #d9f3eb;
+  --color-ocean: #1d7f7a;
+  --color-ocean-deep: #0f5c58;
+  --color-peach: #f4bfa6;
+  --color-peach-deep: #e8b09a;
+  --color-focus: #3db8b0;
+  --color-line: #2a3e45;
+  --radius-frame: 1.25rem;
+}
+
+@theme inline {
+  --font-sans: var(--font-source-sans), "Segoe UI", sans-serif;
+  --font-display: var(--font-fraunces), Georgia, "Times New Roman", serif;
+}
+
+html {
+  color-scheme: dark;
+  scroll-behavior: smooth;
+}
+
+body {
+  background: var(--color-canvas);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+.font-display {
+  font-family: var(--font-display);
+  font-variation-settings: "wght" 560, "SOFT" 30, "WONK" 0, "opsz" 72;
+}
+
+.skip-link {
+  position: absolute;
+  left: 1rem;
+  top: 0;
+  z-index: 40;
+  transform: translateY(-120%);
+  border-radius: 999px;
+  background: var(--color-peach);
+  color: var(--color-canvas);
+  padding: 0.6rem 1rem;
+  font-weight: 600;
+}
+
+.skip-link:focus {
+  transform: translateY(1rem);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.hero-copy {
+  background: linear-gradient(
+    to top,
+    #091b25 58%,
+    rgb(9 27 37 / 0.88) 78%,
+    rgb(9 27 37 / 0) 100%
+  );
+}
+
+@media (min-width: 1024px) {
+  .hero-copy {
+    background: var(--color-surface);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
