@@ -1,0 +1,20 @@
+---
+description: Phase boundaries and where Voyara business logic lives
+alwaysApply: true
+---
+
+# Architecture
+
+Phase 1 is this single Next.js website. Phase 2 is a separate mobile companion. During Phase 1, add no mobile app, Expo project, or monorepo.
+
+Reusable business behavior lives in `src/server/services`. Those modules import no React, route files, or UI components. Web routes and server actions call the services. A later mobile client can call the same services over HTTP.
+
+Build only the step requested in `AGENTS.md`. Catalog and provider rules stay in `docs/architecture/data-policy.md`.
+
+```ts
+// Bad — business logic tied to the website
+import { TripCard } from "@/features/trips/components/trip-card";
+
+// Good — UI-free service a later client can reuse
+export async function createTrip(input: CreateTripInput) {}
+```

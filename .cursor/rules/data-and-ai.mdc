@@ -1,0 +1,23 @@
+---
+description: Closed catalog, provider refresh, and booking-state rules
+globs: "**/*.{ts,tsx,prisma},docs/architecture/**/*.md"
+alwaysApply: false
+---
+
+# Data and AI
+
+Follow `docs/architecture/data-policy.md`. The planner recommends only approved destinations, places, hotels, and activities already in the catalog. It uses no open-web search, browsing, or external destination discovery. Model output and provider payloads create no approved catalog entities.
+
+An approved provider API may refresh permitted dynamic fields on an existing approved record. Each write keeps provenance, checked and verified timestamps, a validation result, and an append-only log. A failed or skipped refresh is not verification.
+
+Invent no price, availability, booking confirmation, or visa requirement. Unknown data stays unknown.
+
+Keep estimates, quotes, booking requests, and confirmed bookings as separate states.
+
+```ts
+// Bad — invented hotel and a request treated as booked
+{ name: "Grand Palace", price: 180, status: "confirmed" }
+
+// Good — approved id, price unknown until revalidation succeeds
+{ hotelId: approvedHotel.id, price: null, status: "booking_request" }
+```

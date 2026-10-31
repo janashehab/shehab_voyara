@@ -1,0 +1,12 @@
+---
+description: Secrets, branches, and change scope
+alwaysApply: true
+---
+
+# Collaboration
+
+Commit no secrets, `.env` files, credentials, or provider keys. `.env.example` contains variable names and placeholders only.
+
+The initial bootstrap may land on `main`. After that commit, do the work on a feature branch and open a pull request for review.
+
+Change only what the request requires. Leave unrelated files, dependencies, and refactors untouched. Commit or push only when the user asks.

@@ -1,0 +1,19 @@
+---
+description: Strict TypeScript and feature module boundaries
+globs: "**/*.{ts,tsx}"
+alwaysApply: false
+---
+
+# Code quality
+
+`strict` TypeScript stays on. External input is validated with Zod at the boundary. Leave `any`, `@ts-ignore`, and non-null assertions out of the code.
+
+Each feature lives in `src/features/<feature>` and owns its components, schemas, queries, and server actions. Files in `src/app` stay thin and delegate to that feature or to `src/server/services`.
+
+```ts
+// Bad
+const amount = payload!.price as any;
+
+// Good
+const amount = priceSchema.parse(payload).amount;
+```
