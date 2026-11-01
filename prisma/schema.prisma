@@ -1,0 +1,515 @@
+// Voyara catalog. Historical amounts stay internal. Price observations,
+// supplier offers, accounts, trips, and booking requests are later tables.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum ApprovalState {
+  draft
+  in_review
+  approved
+  archived
+
+  @@map("approval_state")
+}
+
+enum PlaceKind {
+  poi
+  food
+  neighborhood
+  hotel
+  activity
+  transport
+
+  @@map("place_kind")
+}
+
+enum ItemRole {
+  core
+  alternative
+  editorial_addition
+
+  @@map("item_role")
+}
+
+enum BreakfastInclusion {
+  included
+  not_included
+  unknown
+
+  @@map("breakfast_inclusion")
+}
+
+enum JourneyKind {
+  return
+  multi_city
+  one_way
+
+  @@map("journey_kind")
+}
+
+enum FlightOptionLabel {
+  cheapest
+  better_timing
+  alternative
+
+  @@map("flight_option_label")
+}
+
+enum HistoricalPresentation {
+  historical_reference
+
+  @@map("historical_presentation")
+}
+
+enum HistoricalFreshness {
+  unverified
+
+  @@map("historical_freshness")
+}
+
+enum HistoricalRetrieval {
+  manual
+
+  @@map("historical_retrieval")
+}
+
+enum AmountUnit {
+  per_night
+  itinerary_total
+
+  @@map("amount_unit")
+}
+
+enum ProfileProvenance {
+  manual_import
+  supplier
+
+  @@map("profile_provenance")
+}
+
+enum RecommendationTier {
+  cheapest
+  recommended
+  premium
+  luxury
+
+  @@map("recommendation_tier")
+}
+
+enum FindingKind {
+  missing
+  ambiguous
+  duplicate
+
+  @@map("finding_kind")
+}
+
+enum AttestationStatus {
+  active
+  invalidated
+
+  @@map("attestation_status")
+}
+
+enum AuditActorRole {
+  admin
+  public
+  supplier
+
+  @@map("audit_actor_role")
+}
+
+model Country {
+  id                 String         @id
+  approval           ApprovalState
+  name               String
+  countryCode        String         @map("country_code")
+  adminLockedFields  String[]       @default([]) @map("admin_locked_fields")
+  regions            Region[]
+  stayBases          StayBase[]
+  properties         StayProperty[]
+
+  @@map("country")
+}
+
+model Region {
+  id                String         @id
+  countryId         String         @map("country_id")
+  country           Country        @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  approval          ApprovalState
+  name              String
+  adminLockedFields String[]       @default([]) @map("admin_locked_fields")
+  stayBases         StayBase[]
+  properties        StayProperty[]
+  recommendations   EditorialRecommendation[]
+
+  @@index([countryId])
+  @@map("region")
+}
+
+model StayBase {
+  id                String         @id
+  countryId         String         @map("country_id")
+  country           Country        @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  regionId          String         @map("region_id")
+  region            Region         @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  approval          ApprovalState
+  name              String
+  slug              String         @unique
+  summary           String
+  aliases           String[]       @default([])
+  vibeTags          String[]       @default([]) @map("vibe_tags")
+  adminLockedFields String[]       @default([]) @map("admin_locked_fields")
+  areas             Area[]
+  places            Place[]
+  properties        StayProperty[]
+  recommendations   EditorialRecommendation[]
+
+  @@index([countryId])
+  @@index([regionId])
+  @@map("stay_base")
+}
+
+model Area {
+  id                String         @id
+  stayBaseId        String         @map("stay_base_id")
+  stayBase          StayBase       @relation(fields: [stayBaseId], references: [id], onDelete: Restrict)
+  approval          ApprovalState
+  name              String
+  slug              String
+  adminLockedFields String[]       @default([]) @map("admin_locked_fields")
+  properties        StayProperty[]
+
+  @@unique([stayBaseId, slug])
+  @@index([stayBaseId])
+  @@map("area")
+}
+
+model Place {
+  id                         String               @id
+  stayBaseId                 String               @map("stay_base_id")
+  stayBase                   StayBase             @relation(fields: [stayBaseId], references: [id], onDelete: Restrict)
+  approval                   ApprovalState
+  name                       String
+  kind                       PlaceKind
+  editorialSummary           String               @map("editorial_summary")
+  vibeTags                   String[]             @default([]) @map("vibe_tags")
+  areaLabel                  String?              @map("area_label")
+  latitude                   Float?
+  longitude                  Float?
+  approximateDurationMinutes Int?                 @map("approximate_duration_minutes")
+  adminLockedFields          String[]             @default([]) @map("admin_locked_fields")
+  itineraryItems             SampleItineraryItem[]
+
+  @@index([stayBaseId])
+  @@map("place")
+}
+
+model CuratedTip {
+  id                String        @id
+  approval          ApprovalState
+  body              String
+  subjectType       String        @map("subject_type")
+  subjectId         String        @map("subject_id")
+  adminLockedFields String[]      @default([]) @map("admin_locked_fields")
+
+  @@index([subjectType, subjectId])
+  @@map("curated_tip")
+}
+
+model SampleItinerary {
+  id                String                @id
+  approval          ApprovalState
+  title             String
+  editorialNote     String?               @map("editorial_note")
+  stayBaseIds       String[]              @map("stay_base_ids")
+  adminLockedFields String[]              @default([]) @map("admin_locked_fields")
+  items             SampleItineraryItem[]
+
+  @@map("sample_itinerary")
+}
+
+model SampleItineraryItem {
+  id            String          @id
+  itineraryId   String          @map("itinerary_id")
+  itinerary     SampleItinerary @relation(fields: [itineraryId], references: [id], onDelete: Restrict)
+  dayIndex      Int?            @map("day_index")
+  sortOrder     Int             @map("sort_order")
+  placeId       String          @map("place_id")
+  place         Place           @relation(fields: [placeId], references: [id], onDelete: Restrict)
+  role          ItemRole
+  editorialNote String?         @map("editorial_note")
+
+  @@index([itineraryId])
+  @@index([placeId])
+  @@map("sample_itinerary_item")
+}
+
+model StayProperty {
+  id                     String                    @id
+  countryId              String                    @map("country_id")
+  country                Country                   @relation(fields: [countryId], references: [id], onDelete: Restrict)
+  regionId               String                    @map("region_id")
+  region                 Region                    @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  stayBaseId             String?                   @map("stay_base_id")
+  stayBase               StayBase?                 @relation(fields: [stayBaseId], references: [id], onDelete: Restrict)
+  areaId                 String?                   @map("area_id")
+  area                   Area?                     @relation(fields: [areaId], references: [id], onDelete: Restrict)
+  approval               ApprovalState
+  name                   String
+  sourceIds              String[]                  @map("source_ids")
+  qualityReview          Boolean                   @map("quality_review")
+  editorialShortlistBands String[]                 @default([]) @map("editorial_shortlist_bands")
+  adminLockedFields      String[]                  @default([]) @map("admin_locked_fields")
+  rates                  StayRate[]
+  profiles               ReferenceProfile[]
+
+  @@index([countryId])
+  @@index([regionId])
+  @@index([stayBaseId])
+  @@index([areaId])
+  @@map("stay_property")
+}
+
+model StayRate {
+  id                  String             @id
+  propertyId          String             @map("property_id")
+  property            StayProperty       @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  approval            ApprovalState
+  sourceId            String             @map("source_id")
+  rateKey             String             @map("rate_key")
+  suppliedLabel       String?            @map("supplied_label")
+  roomSizeSquareMeters Int?              @map("room_size_square_meters")
+  roomCategory        String?            @map("room_category")
+  breakfast           BreakfastInclusion
+  occupancyKnown      Boolean            @map("occupancy_known")
+  taxesKnown          Boolean            @map("taxes_known")
+  cancellationKnown   Boolean            @map("cancellation_known")
+  stayDatesKnown      Boolean            @map("stay_dates_known")
+  adminLockedFields   String[]           @default([]) @map("admin_locked_fields")
+
+  @@unique([sourceId, rateKey])
+  @@index([propertyId])
+  @@map("stay_rate")
+}
+
+model FlightTemplate {
+  id                String            @id
+  approval          ApprovalState
+  sourceId          String            @unique @map("source_id")
+  journey           JourneyKind
+  carriers          String[]          @default([])
+  carrierUnresolved Boolean           @map("carrier_unresolved")
+  optionLabel       FlightOptionLabel @map("option_label")
+  adminLockedFields String[]          @default([]) @map("admin_locked_fields")
+  legs              FlightLeg[]
+
+  @@map("flight_template")
+}
+
+model FlightLeg {
+  id                 String         @id
+  templateId         String         @map("template_id")
+  template           FlightTemplate @relation(fields: [templateId], references: [id], onDelete: Restrict)
+  sequence           Int
+  origin             String
+  destination        String
+  originCode         String?        @map("origin_code")
+  destinationCode    String?        @map("destination_code")
+  endpointStayBaseId String?        @map("endpoint_stay_base_id")
+
+  @@unique([templateId, sequence])
+  @@index([templateId])
+  @@map("flight_leg")
+}
+
+model ReferenceProfile {
+  id                String             @id
+  propertyId        String             @map("property_id")
+  property          StayProperty       @relation(fields: [propertyId], references: [id], onDelete: Restrict)
+  sourceId          String             @map("source_id")
+  statedStarRating  Int?               @map("stated_star_rating")
+  guestScore        Float?             @map("guest_score")
+  guestScoreScale   String?            @map("guest_score_scale")
+  provenance        ProfileProvenance
+  verified          Boolean
+
+  @@unique([sourceId])
+  @@index([propertyId])
+  @@map("reference_profile")
+}
+
+model EditorialRecommendation {
+  id                String              @id
+  approval          ApprovalState
+  verified          Boolean
+  tier              RecommendationTier?
+  qualityReview     Boolean             @map("quality_review")
+  stance            String?
+  body              String
+  propertyIds       String[]            @map("property_ids")
+  stayBaseId        String?             @map("stay_base_id")
+  stayBase          StayBase?           @relation(fields: [stayBaseId], references: [id], onDelete: Restrict)
+  regionId          String?             @map("region_id")
+  region            Region?             @relation(fields: [regionId], references: [id], onDelete: Restrict)
+  sourceIds         String[]            @map("source_ids")
+  adminLockedFields String[]            @default([]) @map("admin_locked_fields")
+
+  @@index([stayBaseId])
+  @@index([regionId])
+  @@map("editorial_recommendation")
+}
+
+model SourceArtifact {
+  id                 String         @id
+  sourceSystem       String         @map("source_system")
+  sourcePath         String         @map("source_path")
+  checksum           String
+  role               String
+  normalizerVersion  String         @map("normalizer_version")
+  metadata           Json
+  records            SourceRecord[]
+
+  @@unique([sourcePath])
+  @@map("source_artifact")
+}
+
+model SourceRecord {
+  id           String         @id
+  artifactId   String         @map("artifact_id")
+  artifact     SourceArtifact @relation(fields: [artifactId], references: [id], onDelete: Restrict)
+  sourceSystem String         @map("source_system")
+  sourceId     String         @map("source_id")
+  excerpt      String
+
+  @@unique([sourceSystem, sourceId])
+  @@index([artifactId])
+  @@map("source_record")
+}
+
+model ImportRun {
+  id                 String   @id
+  normalizerVersion  String   @map("normalizer_version")
+  markdownChecksum   String   @map("markdown_checksum")
+  jsonChecksum       String   @map("json_checksum")
+  parisChecksum      String   @map("paris_checksum")
+  createdAt          DateTime @default(now()) @map("created_at")
+
+  @@unique([normalizerVersion, markdownChecksum, jsonChecksum, parisChecksum])
+  @@map("import_run")
+}
+
+model ImportFinding {
+  id       String      @id
+  kind     FindingKind
+  sourceId String?     @map("source_id")
+  field    String
+  message  String
+
+  resolutions FindingResolution[]
+
+  @@unique([kind, sourceId, field, message])
+  @@map("import_finding")
+}
+
+model ImportHold {
+  id          String   @id
+  subjectType String   @map("subject_type")
+  subjectId   String   @map("subject_id")
+  field       String
+  reason      String
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@unique([subjectType, subjectId, field])
+  @@map("import_hold")
+}
+
+model IdentityAttestation {
+  id            String             @id
+  subjectType   String             @map("subject_type")
+  subjectId     String             @map("subject_id")
+  actorId       String             @map("actor_id")
+  attestedAt    DateTime           @map("attested_at")
+  reason        String
+  status        AttestationStatus
+  fingerprint   Json
+  invalidatedAt DateTime?          @map("invalidated_at")
+
+  @@index([subjectType, subjectId, status])
+  @@map("identity_attestation")
+}
+
+model FindingResolution {
+  id        String        @id
+  findingId String        @map("finding_id")
+  finding   ImportFinding @relation(fields: [findingId], references: [id], onDelete: Restrict)
+  actorId   String        @map("actor_id")
+  resolvedAt DateTime     @map("resolved_at")
+  reason    String
+
+  @@index([findingId])
+  @@map("finding_resolution")
+}
+
+model QualityOverride {
+  id           String   @id
+  subjectType  String   @map("subject_type")
+  subjectId    String   @map("subject_id")
+  actorId      String   @map("actor_id")
+  overriddenAt DateTime @map("overridden_at")
+  reason       String
+
+  @@unique([subjectType, subjectId])
+  @@map("quality_override")
+}
+
+model ApprovalAudit {
+  id          String          @id
+  kind        String
+  occurredAt  DateTime        @map("occurred_at")
+  actorId     String          @map("actor_id")
+  actorRole   AuditActorRole  @map("actor_role")
+  subjectType String          @map("subject_type")
+  subjectId   String          @map("subject_id")
+  fromState   ApprovalState?  @map("from_state")
+  toState     ApprovalState?  @map("to_state")
+  reason      String
+  errorCode   String?         @map("error_code")
+
+  @@index([subjectType, subjectId])
+  @@map("approval_audit")
+}
+
+/// Internal reference only. A check constraint rejects live quotes and verified freshness.
+model HistoricalAmount {
+  id             String                  @id
+  approval       ApprovalState
+  sourceId       String                  @map("source_id")
+  presentation   HistoricalPresentation
+  liveQuote      Boolean                 @map("live_quote")
+  freshness      HistoricalFreshness
+  amountMinor    Int?                    @map("amount_minor")
+  currency       String?
+  unit           AmountUnit
+  lastCheckedAt  DateTime?               @map("last_checked_at")
+  lastVerifiedAt DateTime?               @map("last_verified_at")
+  expiresAt      DateTime?               @map("expires_at")
+  note           String
+  subjectType    String                  @map("subject_type")
+  subjectId      String                  @map("subject_id")
+  providerKey    String                  @map("provider_key")
+  externalId     String                  @map("external_id")
+  retrievedBy    HistoricalRetrieval     @map("retrieved_by")
+  adminLockedFields String[]             @default([]) @map("admin_locked_fields")
+
+  @@unique([subjectType, subjectId])
+  @@index([sourceId])
+  @@map("historical_amount")
+}

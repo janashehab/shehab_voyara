@@ -85,7 +85,7 @@ Freshness:
 - `expired`: there has been no successful check, or the current time is at or after `expiresAt`, and the latest attempt itself did not fail.
 - `refresh_failed`: the latest attempt failed. This state replaces `fresh`, `stale`, and `expired` as soon as the failure is recorded.
 
-A failed attempt still sets `lastCheckedAt` and appends history. It does not set `lastVerifiedAt`, does not move `expiresAt` forward, and does not mark the payload verified.
+A failed attempt still sets `lastCheckedAt` and appends history. It does not set `lastVerifiedAt`, does not move `expiresAt` forward, and does not mark the payload verified. `lastVerifiedAt` and `expiresAt` stay independent: the first is the previous successful verification, and the second is the offer expiry. A failure records `refresh_failed` without moving either timestamp and without replacing the previous payload.
 
 The previous payload may remain stored so an operator can see the last received values. Display and booking logic treat that payload as unverified while freshness is `refresh_failed`, `stale`, or `expired`.
 
@@ -108,21 +108,17 @@ A failure leaves the dynamic payload unchanged and records `nextPayload` as null
 
 ## Synchronization architecture
 
-The sync service will live at `src/server/sync/` when the sync step is requested. Do not add jobs, cron, queues, or provider clients before that.
+The pure policy and adapter interfaces live at `src/server/sync/`. The registry starts empty. This step does not add jobs, cron, queues, HTTP clients, or provider credentials.
 
 ```text
 src/server/sync/
-  types.ts          SourceRef, Freshness, SyncTarget, ProviderPayload, SyncResult
+  types.ts          adapter interfaces, links, offers, facts, suggestions, audits
   policy.ts         approved-target check, permitted-field filter, editorial strip
-  registry.ts       map of provider key to adapter; starts empty
-  runner.ts         background refresh orchestration
-  revalidate.ts     synchronous price check used by booking
-  providers/
-    flights/
-    accommodation/
-    weather/
-    activities/
+  freshness.ts      fresh, stale, expired, refresh_failed, and bookable checks
+  registry.ts       in-memory adapter map; starts empty; no network
 ```
+
+A later scheduler and the HTTP adapters are still deferred. Weather remains a later domain. The interfaces covered now are flight shopping, hotel shopping, flight status, mapping, and activities.
 
 Adapter contract:
 
@@ -134,7 +130,7 @@ interface CatalogSyncProvider {
 }
 ```
 
-The adapter returns data. The runner and the policy module write the database.
+The adapter returns data. The policy module decides what may be stored. A future runner writes the database. No adapter in this step calls the network.
 
 Write path for a successful fetch:
 
@@ -152,7 +148,7 @@ Write path for a failed fetch, timeout, empty registry, or missing credentials:
 3. Leave `lastVerifiedAt`, `expiresAt`, and the payload as they were.
 4. Return an unsuccessful result to the caller. Do not convert that result into a verified price.
 
-Providers still to be designed as separate adapters: flights, accommodation, weather, activities, and further domains under `other`. Each adapter declares its domain and its permitted fields. The policy module refuses a field the adapter is not allowed to write.
+HTTP adapters are still to be designed for flights, accommodation, weather, activities, and further domains under `other`. Each adapter declares its domain and its permitted fields. The policy module refuses a field the adapter is not allowed to write. Weather has no interface in this step.
 
 ### New entities
 
@@ -160,7 +156,22 @@ An adapter must not insert a `Destination`, `Place`, `Hotel`, or `Activity`.
 
 A later admin inbox may store an unpublished `CatalogSuggestion` with `proposedType`, a source, and status `pending`, `approved`, or `rejected`. A suggestion is not a catalog row. Discovery and the planner do not read it. Approval is a separate admin action that creates the catalog entity. Rejection writes nothing into the approved catalog.
 
-That inbox is not part of the current foundation.
+The policy records that suggestion in memory with status `pending`. It does not create or approve a catalog row. The admin inbox UI is still a later step. Approving a suggestion, which creates the catalog entity, stays a separate admin action.
+
+## Persistence and scheduled synchronization
+
+These requirements are not implemented yet. They are the contract for the database and scheduler steps.
+
+Persist editorial columns on the catalog tables. Persist supplier links, dated offers, supplier facts, dynamic updates, pending suggestions, and audit events in their own tables. A dated offer is not an editorial field, and a suggestion is not a catalog entity.
+
+The scheduler, when it is added, refreshes only an entity that is already `approved` and already has an admin-created supplier link. It runs on the server. It reads provider credentials from server environment variables and does not put those values in payloads, audits, logs, or client responses. A failed run uses the failure path above: it does not move `lastVerifiedAt` or `expiresAt`. It does not approve a suggestion or an imported draft, including the Thailand inventory. Repeated payloads for the same supplier offer id update one offer row.
+
+Until that scheduler and database exist, callers use the in-memory policy directly. An empty adapter registry is a failed refresh, not a verified price.
+
+Two sync integrations are specified and not implemented:
+
+- A failed refresh must name the supplier request or the individual offer that failed, and update only that row. The current failure path still marks every offer and fact on the supplier link as `refresh_failed`.
+- Sync must load approval from trusted server-side catalog storage. `SyncTarget.approval` supplied by the caller is not the source of truth.
 
 ## Price revalidation before booking
 
@@ -180,8 +191,73 @@ On an unsuccessful revalidation, persist `refresh_failed` using the failure path
 
 The same policy module serves background sync and pre-booking revalidation, so both paths share the permitted-field list and the failure rules.
 
+## Phase 1 pricing
+
+Historical prices imported from the Thailand inventory are internal reference data. They are not customer quotes and they are not live fares.
+
+A later step may store a permitted web-observed price as a `PriceObservation`. That record stays separate from a verified supplier offer. The site may show it as an indicative estimate only when the observation is fresh enough and the dates, occupancy, and other conditions match what the customer asked for. This step does not scrape the web and does not add a `PriceObservation` table.
+
+Final quotations and bookings are handled manually by the Voyara team. A displayed estimate does not confirm a price.
+
+## Catalog approval
+
+Editorial approval is a team decision. It is not supplier freshness, not a live offer, and not a verified guest score. The workflow lives in `src/server/services/catalog-approval`. It is server code. It has no page, no route, and no server action. No approval endpoint is exposed until authentication and authorization exist. Until that auth step, the operation accepts a server-side actor argument and rejects a public caller, an unauthenticated actor, and any supplier payload.
+
+The workflow changes one record at a time: a country, a region, a stay base, an accommodation property, or a flight route template. It does not approve the imported catalog in bulk. Approving one record does not approve its parent or its children. Rate variants, historical amounts, areas, and editorial recommendation notes stay at the approval state they already have.
+
+Allowed transitions:
+
+| From | To |
+|---|---|
+| `draft` | `in_review`, `archived` |
+| `in_review` | `draft`, `approved`, `archived` |
+| `approved` | `in_review`, `archived` |
+| `archived` | `draft` |
+
+A country, region, or stay base uses the same transition graph. A region can become `approved` only when its country is already `approved`. A stay base can become `approved` only when its country and region are already `approved`. These records do not need an identity attestation. They are team-defined geography, and each one is still an explicit admin action.
+
+Moving a property or flight template to `approved` also requires an identity attestation from a trusted admin. The attestation stores a fingerprint of the identity-critical fields. For a property those fields are the name, source ids, and geographic assignment. For a flight template they are the source id and the origin and destination of each leg. Carriers are not part of that fingerprint. If those fields change through the database, the same transaction invalidates the active attestation and writes an audit. Public retrieval then fails until a new attestation. The in-memory policy still detects a stale fingerprint on the next trusted approval call when that call is used without the database. The attestation does not itself change approval and it does not create a live offer.
+
+A property needs a name, at least one source id, provenance for each source id, and no other property using those source ids. It also needs a country, a region in that country, and a stay base in that region, and those three records must already be `approved`. An area is required only when the property already names one, and that area must belong to the stay base. Area records are not part of this public hierarchy. A live price is not required. Approving the property does not approve its rate variants, and it does not turn a historical amount into a dated offer.
+
+Import findings stay on the catalog. A resolution is a separate ledger row. It does not delete the finding.
+
+| Class | Examples | Approval |
+|---|---|---|
+| Blocking identity | Listing still needs verification, grouped rows that disagree on location | Must be resolved. A quality override cannot skip it. |
+| Blocking geography | Krabi stay with no Ao Nang or Koh Lanta base | Must be resolved, and the stay base must exist. A quality override cannot skip it. |
+| Serious quality | `qualityReview` on the property | Blocks approval until a documented quality override. |
+| Missing detail | Room size, breakfast, historical price, star rating, an unresolved airline, a Krabi flight that does not choose a stay base, a neighborhood mentioned only in a name | Does not block approval. |
+
+Catalog-wide notes with no source id, including similar property names, do not block one property.
+
+A flight route template is not a dated flight offer. It needs provenance, and each leg needs an origin and a destination that differ. Missing carriers and several possible carriers stay unresolved metadata on the template. A city or airport is not an accommodation stay base, so a flight may end at Krabi Airport without selecting Ao Nang or Koh Lanta. Approving the template does not approve its historical amount and does not mark a fare live. Public retrieval labels it `route_template` with confirmed flight and live fare both false.
+
+Each transition, rejection, attestation, invalidation, finding resolution, and quality override appends an audit event with the actor, timestamp, subject, and reason. Supplier secrets are not copied into the audit.
+
+Public retrieval returns an approved property only while its country, region, and stay base are also `approved`. Archiving the stay base removes the property from retrieval and does not change the property's own approval. Draft, in-review, and archived records stay out. Retrieval does not read freshness or price. An approved flight template is returned as a route template, not as a bookable fare.
+
+### Approval storage
+
+The Prisma migration defines these tables. It has not been applied to the Supabase project.
+
+- Keep `approval` on the catalog row for the country, region, stay base, property, or flight template.
+- A newly imported Thailand row starts as `draft`. A finding can block approval. It does not move the row to `in_review`.
+- Append each attempt to an `approval_audit` table: actor id, timestamp, subject type, subject id, previous state, next state, reason, and error code. The table is append-only. Invalidations, finding resolutions, and quality overrides are audited there too.
+- Store identity attestations in their own table, with the fingerprint of the identity-critical fields. A database update to a name, source id, route, or geographic assignment invalidates the row in that same transaction. It does not delete the history.
+- Store finding resolutions and quality overrides in their own tables. Do not delete the original import finding.
+- Keep a future `PriceObservation` separate from verified supplier offers and from historical reference amounts. The migration does not create `PriceObservation`.
+- A historical amount is constrained to an internal reference: presentation `historical_reference`, `live_quote` false, freshness `unverified`, and no verification timestamp.
+- Do not store approval inside a supplier payload, a dated offer, or a historical amount.
+- The future auth module is the only server code that may mark an actor authenticated. The database write runs on the server after that check.
+- Import idempotency is the source checksums plus `CATALOG_NORMALIZER_VERSION`. A repeated run does not duplicate rows, clear an approval, or replace an admin-locked identity field.
+
 ## Database step
 
-When the schema is added, model editorial columns on the catalog tables and dynamic facts on separate tables with the contract above. Seed approved editorial examples only. Leave dynamic prices unverified until a real revalidation succeeds.
+`prisma/schema.prisma` models the editorial catalog, historical amounts, provenance, and the approval ledger. Paris editorial examples are seeded approved. Thailand rows are seeded draft. Dynamic supplier prices stay unverified until a real revalidation succeeds, and this step does not store them.
+
+The public homepage and destination page read approved editorial rows from PostgreSQL through `loadApprovedEditorialCatalog`. A stay base is included only when that stay base, its country, and its region are approved. Places, tips, and sample itineraries have to belong to that set. The read leaves `dynamicFacts` empty, so historical amounts are not quotes. Stay properties and flight templates are not part of this read. Draft Thailand rows remain in the database and stay off these pages.
+
+`generateStaticParams` and the destination proxy keep using the synchronous in-memory slug list. They do not open the database. If the editorial read fails, the page says the catalog could not be opened. It does not substitute the fixture and it does not publish a draft row.
 
 Do not seed `freshness: fresh` or a `lastVerifiedAt` for a price that no provider has confirmed.

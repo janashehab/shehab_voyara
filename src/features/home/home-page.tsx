@@ -2,10 +2,10 @@ import { BrandHero } from "@/components/brand-hero";
 import { FeaturedDestination } from "@/components/featured-destination";
 import { PageShell } from "@/components/page-shell";
 import { ProcessSteps, type ProcessStep } from "@/components/process-steps";
-import { getHomeFeature } from "@/features/destinations/queries";
+import type { HomeFeature } from "@/features/destinations/queries";
 
-export function HomePage() {
-  const { destinations } = getHomeFeature();
+export function HomePage({ feature }: { feature: HomeFeature }) {
+  const { destinations } = feature;
   const featured = destinations[0] ?? null;
   const featuredHref = featured ? `/destinations/${featured.destination.slug}` : null;
   const exploreLabel = featured ? `Explore ${featured.destination.name}` : null;

@@ -4,6 +4,7 @@ import {
   coreItemsForDay,
   editorialAdditionItems,
   getPrototypeCatalog,
+  type CatalogSnapshot,
   type CuratedTip,
   type Destination,
   type Place,
@@ -96,8 +97,8 @@ function rows(items: readonly SampleItineraryItem[], places: Map<PlaceId, Place>
   });
 }
 
-export function getHomeFeature(): HomeFeature {
-  const catalog = approvedCatalog(getPrototypeCatalog());
+export function getHomeFeature(snapshot: CatalogSnapshot): HomeFeature {
+  const catalog = approvedCatalog(snapshot);
 
   return {
     destinations: catalog.destinations.map((destination) => ({
@@ -111,8 +112,11 @@ export function getHomeFeature(): HomeFeature {
   };
 }
 
-export function getDestinationPage(slug: string): DestinationPageData | null {
-  const catalog = approvedCatalog(getPrototypeCatalog());
+export function getDestinationPage(
+  snapshot: CatalogSnapshot,
+  slug: string,
+): DestinationPageData | null {
+  const catalog = approvedCatalog(snapshot);
   const destination = catalog.destinations.find((item) => item.slug === slug);
 
   if (!destination) {
@@ -189,6 +193,7 @@ export function getDestinationPage(slug: string): DestinationPageData | null {
   };
 }
 
+/** Synchronous slug list for the proxy and generateStaticParams. It does not open the database. */
 export function approvedDestinationSlugs(): string[] {
   return approvedCatalog(getPrototypeCatalog()).destinations.map(
     (destination) => destination.slug,

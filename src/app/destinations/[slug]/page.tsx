@@ -1,11 +1,11 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { notFound } from "next/navigation";
+import { CatalogOpening } from "@/components/catalog-opening";
 import { DestinationPage } from "@/features/destinations/destination-page";
-import {
-  approvedDestinationSlugs,
-  getDestinationPage,
-} from "@/features/destinations/queries";
+import { approvedDestinationSlugs, getDestinationPage } from "@/features/destinations/queries";
 import { regionName } from "@/lib/format";
+import { loadPublicEditorialCatalog } from "@/server/catalog/public-editorial";
 
 type DestinationRouteProps = {
   params: Promise<{ slug: string }>;
@@ -17,7 +17,7 @@ export function generateStaticParams() {
 
 export async function generateMetadata({ params }: DestinationRouteProps): Promise<Metadata> {
   const { slug } = await params;
-  const page = getDestinationPage(slug);
+  const page = getDestinationPage(await loadPublicEditorialCatalog(), slug);
 
   if (!page) {
     return { title: "Not found" };
@@ -31,9 +31,17 @@ export async function generateMetadata({ params }: DestinationRouteProps): Promi
   };
 }
 
-export default async function Page({ params }: DestinationRouteProps) {
+export default function Page({ params }: DestinationRouteProps) {
+  return (
+    <Suspense fallback={<CatalogOpening />}>
+      <DestinationContent params={params} />
+    </Suspense>
+  );
+}
+
+async function DestinationContent({ params }: DestinationRouteProps) {
   const { slug } = await params;
-  const page = getDestinationPage(slug);
+  const page = getDestinationPage(await loadPublicEditorialCatalog(), slug);
 
   if (!page) {
     notFound();
