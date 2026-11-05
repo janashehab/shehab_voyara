@@ -28,7 +28,9 @@ This repository does not name the proxy in front of the website. `X-Forwarded-Fo
 
 When the hop count is unset, empty, or invalid, every AI caller shares one `direct` bucket. The header is not read. A wrong hop count therefore groups visitors together. It does not accept the leftmost client-supplied address.
 
-`VOYARA_INTERPRETER_CALLER_PEPPER` is an optional server-only string mixed into the stored hash. Set a long random value before public traffic so the stored caller id is not an enumerable hash of an IPv4 address. The raw address is not stored.
+`VOYARA_INTERPRETER_CALLER_PEPPER` is a server-only string mixed into the stored hash. When `VOYARA_TRUSTED_PROXY_HOPS` is 1–5, the trimmed pepper must be at least 32 characters. A missing or shorter pepper makes the provider unavailable before a ledger reservation or a provider call. When the hop count is unset, empty, or invalid, callers share the `direct` bucket and the pepper is not required. Set a long random value before public traffic so the stored caller id is not an enumerable hash of an IPv4 address. The raw address is not stored.
+
+The node test runner does not import `resolveServerInterpreter` because `server-only` rejects that import. Direct coverage of that wrapper remains outstanding. The pepper tests cover `prepareInterpreter`, which is the function that wrapper returns.
 
 The in-memory concierge screen still uses the first `X-Forwarded-For` hop for questionnaire actions. That screen is process-local, resets on restart, and is not the paid-call budget.
 
