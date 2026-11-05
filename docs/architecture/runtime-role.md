@@ -14,7 +14,7 @@ It is not granted `DELETE`, `TRUNCATE`, or access to any other table. It is not 
 
 The `SELECT` policies use `USING (true)`. They do not filter `approval`. This server role can read draft rows in those seven tables. `loadApprovedEditorialCatalog` still applies the approval filter in its query. The policies name only `voyara_runtime`, so `anon`, `authenticated`, and `service_role` do not gain a policy.
 
-Row-level security stays unforced, so the table owner keeps bypassing it. `npm run db:seed` uses `DATABASE_URL` and must keep using the owner until that script is pointed at the owner connection.
+Row-level security stays unforced, so the table owner keeps bypassing it. `npm run db:seed` uses `DIRECT_URL`, the owner session pooler, and refuses a `voyara_runtime` username.
 
 ## Login provisioning, not in this migration
 

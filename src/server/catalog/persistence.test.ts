@@ -12,7 +12,13 @@ import {
 } from "@/server/services/planner/catalog-repository";
 import { retrieveDestination } from "@/server/services/planner/retrieve";
 
-import { assertDatabaseUrl, migrationConnectionUrl, runtimeConnectionUrl } from "./database-url";
+import {
+  assertDatabaseUrl,
+  LOCAL_MIGRATION_PLACEHOLDER,
+  migrationConnectionUrl,
+  runtimeConnectionUrl,
+  seedConnectionUrl,
+} from "./database-url";
 import { decideField, mergeFields } from "./field-ownership";
 import { listPublicTravel } from "./public-retrieval";
 import {
@@ -179,3 +185,50 @@ test("migration and runtime URLs stay on IPv4 Supabase poolers", () => {
     /pgbouncer=true/,
   );
 });
+
+test("catalog seeding requires the owner session pooler", () => {
+  const host = "aws-0-eu-central-1.pooler.supabase.com";
+  const secret = "secret-token";
+  const session = `postgresql://postgres.example:${secret}@${host}:5432/postgres?sslmode=require`;
+  const transaction = `postgresql://postgres.example:${secret}@${host}:6543/postgres?pgbouncer=true`;
+  assert.equal(seedConnectionUrl(session), session);
+  assert.equal(runtimeConnectionUrl(transaction), transaction);
+
+  for (const missing of [undefined, "", "   "]) {
+    assert.throws(() => seedConnectionUrl(missing), (error: unknown) => secretSafe(error, /DIRECT_URL is required/, secret, host));
+  }
+  assert.throws(
+    () => seedConnectionUrl(LOCAL_MIGRATION_PLACEHOLDER),
+    (error: unknown) => secretSafe(error, /DIRECT_URL is required/, secret, host),
+  );
+
+  const runtimeUsers = ["voyara_runtime", "voyara_runtime.projectref", "Voyara_Runtime.projectref"];
+  for (const username of runtimeUsers) {
+    const url = `postgresql://${username}:${secret}@${host}:5432/postgres?sslmode=require`;
+    assert.throws(() => seedConnectionUrl(url), (error: unknown) => secretSafe(error, /voyara_runtime/, secret, host, url));
+  }
+
+  assert.throws(
+    () => seedConnectionUrl(transaction),
+    (error: unknown) => secretSafe(error, /port 5432/, secret, host, transaction),
+  );
+  const direct = `postgresql://postgres.example:${secret}@db.example.supabase.co:5432/postgres`;
+  assert.throws(() => seedConnectionUrl(direct), (error: unknown) => secretSafe(error, /IPv4/, secret, host, direct));
+
+  const malformed = `not-a-url ${secret} ${host}`;
+  assert.throws(
+    () => seedConnectionUrl(malformed),
+    (error: unknown) => secretSafe(error, /PostgreSQL connection URL/, secret, host, malformed),
+  );
+});
+
+function secretSafe(error: unknown, pattern: RegExp, secret: string, host: string, url?: string): boolean {
+  assert.ok(error instanceof Error);
+  assert.match(error.message, pattern);
+  assert.equal(error.message.includes(secret), false);
+  assert.equal(error.message.includes(host), false);
+  if (url !== undefined) {
+    assert.equal(error.message.includes(url), false);
+  }
+  return true;
+}

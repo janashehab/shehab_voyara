@@ -2,7 +2,7 @@ import { existsSync } from "node:fs";
 import { loadEnvFile } from "node:process";
 
 import type { PrismaClient } from "@/generated/prisma/client";
-import { runtimeConnectionUrl } from "@/server/catalog/database-url";
+import { seedConnectionUrl } from "@/server/catalog/database-url";
 import type { ImportReport } from "@/server/catalog/import-catalog";
 import { importPersistentCatalog } from "@/server/catalog/import-catalog";
 import { createPrismaClient } from "@/server/catalog/prisma-client";
@@ -12,7 +12,7 @@ async function main(): Promise<void> {
     loadEnvFile(".env");
   }
 
-  const prisma = createPrismaClient(runtimeConnectionUrl(process.env.DATABASE_URL));
+  const prisma = createPrismaClient(seedConnectionUrl(process.env.DIRECT_URL));
   try {
     const report = await importPersistentCatalog(prisma);
     const summary = await importSummary(prisma, report);

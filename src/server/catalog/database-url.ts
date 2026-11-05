@@ -64,6 +64,30 @@ export function migrationConnectionUrl(value: string | undefined): string {
   return value;
 }
 
+/**
+ * Owner session-pooler URL for catalog seeding. An empty value is rejected.
+ * This does not use DATABASE_URL or the offline generate placeholder.
+ */
+export function seedConnectionUrl(value: string | undefined): string {
+  if (value === undefined || value.trim() === "") {
+    throw new Error("DIRECT_URL is required to seed the catalog.");
+  }
+  const connectionString = migrationConnectionUrl(value);
+  if (connectionString === LOCAL_MIGRATION_PLACEHOLDER) {
+    throw new Error("DIRECT_URL is required to seed the catalog.");
+  }
+  const url = postgresUrl(connectionString, "DIRECT_URL");
+  if (isRuntimeSeedRole(url.username)) {
+    throw new Error("DIRECT_URL must use the migration owner. Refusing to seed as voyara_runtime.");
+  }
+  return connectionString;
+}
+
+function isRuntimeSeedRole(username: string): boolean {
+  const name = username.toLowerCase();
+  return name === "voyara_runtime" || name.startsWith("voyara_runtime.");
+}
+
 function postgresUrl(value: string, name: string): URL {
   let url: URL;
   try {
