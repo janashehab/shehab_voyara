@@ -60,7 +60,7 @@ function promptPlace(place: RetrievalPlace) {
   };
 }
 
-function rankScore(place: RetrievalPlace, preferences: TravelerPreferences): number {
+export function rankScore(place: RetrievalPlace, preferences: TravelerPreferences): number {
   let score = 0;
   if (preferences.constraints.mustSeePlaceIds.includes(place.id)) {
     score += 100;

@@ -30,3 +30,22 @@ export type PlannerCompletion = {
 export type PlannerModel = {
   complete(request: PlannerCompletionRequest): Promise<PlannerCompletion>;
 };
+
+/**
+ * Interprets a traveler note into JSON text. It does not select places or
+ * build a TripDocument. The chat adapter reads a server-only API key only
+ * when the interpreter provider is explicitly enabled.
+ */
+export type InterpreterCompletionRequest = {
+  schemaName: "voyara.interpreter.turn";
+  system: string;
+  user: string;
+};
+
+export type InterpreterCompletion = {
+  text: string;
+};
+
+export type InterpreterModel = {
+  complete(request: InterpreterCompletionRequest): Promise<InterpreterCompletion>;
+};
