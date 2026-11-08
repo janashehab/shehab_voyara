@@ -8,7 +8,7 @@
     "postinstall": "prisma generate",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types --import ./test/register-alias.mjs --test src/lib/catalog/catalog.test.ts src/server/services/planner/planner.test.ts src/lib/catalog/travel/travel.test.ts src/lib/catalog/imports/thailand/thailand.test.ts src/server/sync/policy.test.ts src/server/services/catalog-approval/approval.test.ts src/server/catalog/persistence.test.ts src/server/catalog/database.test.ts src/server/catalog/public-read.test.ts src/features/destinations/queries.test.ts",
+    "test": "node --experimental-strip-types --import ./test/register-alias.mjs --test src/lib/catalog/catalog.test.ts src/server/services/planner/planner.test.ts src/lib/catalog/travel/travel.test.ts src/lib/catalog/imports/thailand/thailand.test.ts src/server/sync/policy.test.ts src/server/services/catalog-approval/approval.test.ts src/server/catalog/persistence.test.ts src/server/catalog/database.test.ts src/server/catalog/public-read.test.ts src/features/destinations/queries.test.ts src/server/ai/interpreter-usage-migration.test.ts src/server/catalog/runtime-role.test.ts",
     "db:generate": "prisma generate",
     "db:seed": "node --experimental-strip-types --import ./test/register-alias.mjs scripts/db-seed.ts"
   },

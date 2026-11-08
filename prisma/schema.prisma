@@ -513,3 +513,13 @@ model HistoricalAmount {
   @@index([sourceId])
   @@map("historical_amount")
 }
+
+/// Shared AI request counts. The reservation path uses raw SQL.
+/// This model keeps Migrate from dropping the table. It is not the limiter.
+model InterpreterUsageBucket {
+  bucketKey    String   @id @map("bucket_key")
+  windowStart  DateTime @map("window_start") @db.Timestamptz(6)
+  requestCount Int      @map("request_count")
+
+  @@map("interpreter_usage_bucket")
+}
