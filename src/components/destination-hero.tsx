@@ -9,10 +9,12 @@ export function DestinationHero({
   destination,
   photo,
   routeHref,
+  routeLabel,
 }: {
   destination: Destination;
   photo: TravelPhoto | null;
   routeHref: string | null;
+  routeLabel: string | null;
 }) {
   return (
     <section className="mx-auto grid max-w-6xl items-stretch lg:h-[calc(100svh-4.5rem)] lg:grid-cols-[minmax(0,768px)_1fr]">
@@ -36,10 +38,10 @@ export function DestinationHero({
             <Tag key={tag}>{tag}</Tag>
           ))}
         </div>
-        {routeHref ? (
+        {routeHref && routeLabel ? (
           <div className="mt-8">
             <Button href={routeHref} variant="secondary">
-              The three days
+              {routeLabel}
             </Button>
           </div>
         ) : null}

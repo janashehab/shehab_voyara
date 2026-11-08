@@ -1,17 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
-import { approvedDestinationSlugs } from "@/features/destinations/queries";
+
+import { destinationSlugGate } from "@/features/destinations/slug";
 
 export function proxy(request: NextRequest) {
   const segment = request.nextUrl.pathname.split("/").filter(Boolean)[1];
 
-  if (!segment) {
-    return NextResponse.next();
-  }
-
-  const slug = decodeURIComponent(segment);
-
-  if (approvedDestinationSlugs().includes(slug)) {
+  if (destinationSlugGate(segment) === "allow") {
     return NextResponse.next();
   }
 

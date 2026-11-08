@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import { CatalogOpening } from "@/components/catalog-opening";
 import { DestinationPage } from "@/features/destinations/destination-page";
-import { approvedDestinationSlugs, getDestinationPage } from "@/features/destinations/queries";
+import { getDestinationPage } from "@/features/destinations/queries";
 import { regionName } from "@/lib/format";
 import { loadPublicEditorialCatalog } from "@/server/catalog/public-editorial";
 
@@ -12,7 +12,7 @@ type DestinationRouteProps = {
 };
 
 export function generateStaticParams() {
-  return approvedDestinationSlugs().map((slug) => ({ slug }));
+  return [{ slug: "paris" }];
 }
 
 export async function generateMetadata({ params }: DestinationRouteProps): Promise<Metadata> {

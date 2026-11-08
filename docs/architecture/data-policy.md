@@ -258,6 +258,14 @@ The Prisma migration defines these tables. It has not been applied to the Supaba
 
 The public homepage and destination page read approved editorial rows from PostgreSQL through `loadApprovedEditorialCatalog`. A stay base is included only when that stay base, its country, and its region are approved. Places, tips, and sample itineraries have to belong to that set. The read leaves `dynamicFacts` empty, so historical amounts are not quotes. Stay properties and flight templates are not part of this read. Draft Thailand rows remain in the database and stay off these pages.
 
-`generateStaticParams` and the destination proxy keep using the synchronous in-memory slug list. They do not open the database. If the editorial read fails, the page says the catalog could not be opened. It does not substitute the fixture and it does not publish a draft row.
+The destination proxy checks slug shape only. A public slug is lowercase letters and numbers, with single hyphens between words, and it is at most 64 characters. Any other shape is rewritten to the catalog-miss path. The proxy does not open the database and does not read the prototype fixture. A well-formed slug is not an approval.
+
+The destination page looks the slug up in the approved public catalog. An unknown, draft, archived, or otherwise unapproved destination calls `notFound()`. A failed catalog read stays an error. The page says the catalog could not be opened. It does not substitute the Paris fixture and it does not publish a draft row.
+
+`generateStaticParams` returns the Paris slug so Cache Components can prerender one destination route. That value is a build seed, not a publication allowlist. The approved catalog decides whether a well-formed slug is published. A slug outside the seed can still render on request.
+
+For this Paris-only preview, a well-formed unknown, draft, or archived destination is an unresolved public-launch concern. Next.js postpones the response, sends HTTP 200, and then renders the not-found page. `notFound()` inserts `<meta name="robots" content="noindex">` into that body. The meta tag is the indexing signal. The status line stays 200, so a status check, an uptime probe, or a crawler that ignores robots metadata will treat the URL as a successful page. Malformed slugs stay a real HTTP 404 from the proxy and should be monitored separately. This route sets no cache lifetime. A completed miss might remain cached until a later request replaces it. That stickiness is a risk: a destination approved after a cached miss could keep showing the not-found page. It is not a confirmed persistent-cache defect.
+
+Closing the route with build-time slug matching was rejected. That approach would require a new build before a newly approved destination could be published. The catalog remains the authority.
 
 Do not seed `freshness: fresh` or a `lastVerifiedAt` for a price that no provider has confirmed.

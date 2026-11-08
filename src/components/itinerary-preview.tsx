@@ -2,6 +2,7 @@
 
 import { useState, type KeyboardEvent } from "react";
 import { flushSync } from "react-dom";
+import { nextTabIndex } from "@/components/day-tabs";
 import { MediaFrame } from "@/components/media-frame";
 import { PlaceRow } from "@/components/place-row";
 import type { DayView, HighlightView, PlaceRowView } from "@/features/destinations/queries";
@@ -39,17 +40,8 @@ export function ItineraryPreview({
 
   function onTabKeyDown(event: KeyboardEvent<HTMLDivElement>) {
     const index = days.findIndex((day) => day.dayIndex === selected);
-    let next = index;
-
-    if (event.key === "ArrowRight") {
-      next = (index + 1) % days.length;
-    } else if (event.key === "ArrowLeft") {
-      next = (index - 1 + days.length) % days.length;
-    } else if (event.key === "Home") {
-      next = 0;
-    } else if (event.key === "End") {
-      next = days.length - 1;
-    } else {
+    const next = nextTabIndex(index, days.length, event.key);
+    if (next === null) {
       return;
     }
 

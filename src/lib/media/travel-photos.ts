@@ -40,6 +40,11 @@ export const destinationCovers: Partial<Record<DestinationId, TravelPhoto>> = {
   dst_paris: seineEiffel,
 };
 
+/**
+ * Homepage brand artwork. Showing this photograph does not approve a destination.
+ */
+export const brandPhotograph = seineEiffel;
+
 export const editorialPhotographs: Partial<Record<DestinationId, readonly EditorialPhoto[]>> = {
   dst_paris: [
     {

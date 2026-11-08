@@ -1,49 +1,42 @@
-import { BrandHero } from "@/components/brand-hero";
+import Link from "next/link";
+import { Button } from "@/components/button";
 import { FeaturedDestination } from "@/components/featured-destination";
-import { PageShell } from "@/components/page-shell";
-import { ProcessSteps, type ProcessStep } from "@/components/process-steps";
+import { ProcessSteps } from "@/components/process-steps";
 import type { HomeFeature } from "@/features/destinations/queries";
+import { featuredDestinationLink, homeProcessSteps } from "@/features/home/featured-link";
 
-export function HomePage({ feature }: { feature: HomeFeature }) {
-  const { destinations } = feature;
-  const featured = destinations[0] ?? null;
-  const featuredHref = featured ? `/destinations/${featured.destination.slug}` : null;
-  const exploreLabel = featured ? `Explore ${featured.destination.name}` : null;
-
-  const steps: ProcessStep[] = [
-    {
-      title: "Choose a place we keep",
-      body: featured
-        ? `${featured.destination.name} is the destination in the catalog today.`
-        : "Approved destinations will appear here.",
-      href: featuredHref ?? undefined,
-      actionLabel: featured ? `See ${featured.destination.name}` : undefined,
-    },
-    {
-      title: "Tell us about the trip",
-      body: "Timing, pace, and who you travel with come in a later step.",
-      later: true,
-    },
-    {
-      title: "Follow the days",
-      body: "A personal version of the route comes after planning exists.",
-      later: true,
-    },
-  ];
+export function HomeDestinationLink({ feature }: { feature: HomeFeature }) {
+  const destination = featuredDestinationLink(feature);
+  if (!destination) {
+    return null;
+  }
 
   return (
-    <PageShell
-      links={
-        featured
-          ? [{ href: featuredHref ?? "/", label: featured.destination.name }]
-          : []
-      }
-    >
-      <BrandHero
-        photo={featured?.cover ?? null}
-        actionHref={featuredHref}
-        actionLabel={exploreLabel}
-      />
+    <Link href={destination.href} className="text-sm font-semibold text-mist">
+      {destination.name}
+    </Link>
+  );
+}
+
+export function HomeHeroAction({ feature }: { feature: HomeFeature }) {
+  const destination = featuredDestinationLink(feature);
+  if (!destination) {
+    return null;
+  }
+
+  return (
+    <div className="mt-8">
+      <Button href={destination.href}>{`Explore ${destination.name}`}</Button>
+    </div>
+  );
+}
+
+export function HomeCatalog({ feature }: { feature: HomeFeature }) {
+  const { destinations } = feature;
+  const steps = homeProcessSteps(feature);
+
+  return (
+    <>
       <section aria-labelledby="featured-heading" className="mx-auto max-w-6xl px-5 py-16">
         <h2 id="featured-heading" className="font-display text-3xl text-ink">
           A place we keep
@@ -55,6 +48,7 @@ export function HomePage({ feature }: { feature: HomeFeature }) {
               destination={item.destination}
               cover={item.cover}
               itineraryTitle={item.itineraryTitle}
+              sampleDayCount={item.sampleDayCount}
             />
           ))}
         </div>
@@ -67,6 +61,6 @@ export function HomePage({ feature }: { feature: HomeFeature }) {
           <ProcessSteps steps={steps} />
         </div>
       </section>
-    </PageShell>
+    </>
   );
 }

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { MediaFrame } from "@/components/media-frame";
 import { Tag } from "@/components/tag";
-import { regionName } from "@/lib/format";
+import { regionName, sampleDaysLabel } from "@/lib/format";
 import type { TravelPhoto } from "@/lib/media/travel-photos";
 import type { Destination } from "@/lib/catalog";
 
@@ -9,10 +9,12 @@ export function FeaturedDestination({
   destination,
   cover,
   itineraryTitle,
+  sampleDayCount,
 }: {
   destination: Destination;
   cover: TravelPhoto | null;
   itineraryTitle: string | null;
+  sampleDayCount: number | null;
 }) {
   const href = `/destinations/${destination.slug}`;
 
@@ -42,7 +44,9 @@ export function FeaturedDestination({
               <Tag key={tag}>{tag}</Tag>
             ))}
           </div>
-          <p className="text-sm font-semibold text-peach">Read the three days</p>
+          {sampleDayCount !== null ? (
+            <p className="text-sm font-semibold text-peach">{sampleDaysLabel(sampleDayCount, "Read")}</p>
+          ) : null}
         </div>
       </Link>
     </article>

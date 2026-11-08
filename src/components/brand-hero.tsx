@@ -1,15 +1,13 @@
-import { Button } from "@/components/button";
+import type { ReactNode } from "react";
 import { MediaFrame } from "@/components/media-frame";
 import type { TravelPhoto } from "@/lib/media/travel-photos";
 
 export function BrandHero({
   photo,
-  actionHref,
-  actionLabel,
+  action = null,
 }: {
   photo: TravelPhoto | null;
-  actionHref: string | null;
-  actionLabel: string | null;
+  action?: ReactNode;
 }) {
   return (
     <section className="mx-auto grid max-w-6xl items-stretch gap-0 lg:h-[calc(100svh-4.5rem)] lg:grid-cols-[minmax(0,768px)_1fr]">
@@ -32,11 +30,7 @@ export function BrandHero({
           Discover extraordinary places, explore curated experiences, and create
           adventures that feel like you.
         </p>
-        {actionHref && actionLabel ? (
-          <div className="mt-8">
-            <Button href={actionHref}>{actionLabel}</Button>
-          </div>
-        ) : null}
+        {action}
       </div>
     </section>
   );

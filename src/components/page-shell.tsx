@@ -5,16 +5,18 @@ import { SiteHeader, type HeaderLink } from "@/components/site-header";
 
 export function PageShell({
   links,
+  leading = null,
   children,
 }: {
   links: readonly HeaderLink[];
+  leading?: ReactNode;
   children: ReactNode;
 }) {
   return (
     <>
       <SkipLink />
-      <SiteHeader links={links} />
-      <main id="main" tabIndex={-1} className="outline-none">
+      <SiteHeader links={links} leading={leading} />
+      <main id="main" tabIndex={-1}>
         {children}
       </main>
       <SiteFooter />

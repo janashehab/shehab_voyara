@@ -3,13 +3,14 @@ import {
   approvedCatalog,
   coreItemsForDay,
   editorialAdditionItems,
-  getPrototypeCatalog,
   type CatalogSnapshot,
   type CuratedTip,
   type Destination,
+  type DestinationId,
   type Place,
   type PlaceId,
   type SampleItinerary,
+  type SampleItineraryId,
   type SampleItineraryItem,
 } from "@/lib/catalog";
 import {
@@ -60,9 +61,23 @@ export type HomeFeature = {
   destinations: readonly {
     destination: Destination;
     itineraryTitle: string | null;
+    sampleDayCount: number | null;
     cover: TravelPhoto | null;
   }[];
 };
+
+function scheduledDayIndexes(
+  catalog: CatalogSnapshot,
+  itineraryId: SampleItineraryId,
+): number[] {
+  return [
+    ...new Set(
+      catalog.sampleItineraryItems.flatMap((item) =>
+        item.itineraryId === itineraryId && item.dayIndex !== null ? [item.dayIndex] : [],
+      ),
+    ),
+  ].sort((left, right) => left - right);
+}
 
 function placeMap(places: readonly Place[]): Map<PlaceId, Place> {
   return new Map(places.map((place) => [place.id, place]));
@@ -97,16 +112,37 @@ function rows(items: readonly SampleItineraryItem[], places: Map<PlaceId, Place>
   });
 }
 
+/**
+ * Distinct scheduled days on the approved sample itinerary.
+ * Editorial additions have no day index and stay out of the count.
+ */
+export function approvedSampleDayCount(
+  snapshot: CatalogSnapshot,
+  destinationId: DestinationId,
+): number | null {
+  const catalog = approvedCatalog(snapshot);
+  const itinerary =
+    catalog.sampleItineraries.find((item) => item.destinationIds.includes(destinationId)) ?? null;
+
+  if (!itinerary) {
+    return null;
+  }
+
+  const count = scheduledDayIndexes(catalog, itinerary.id).length;
+  return count === 0 ? null : count;
+}
+
 export function getHomeFeature(snapshot: CatalogSnapshot): HomeFeature {
   const catalog = approvedCatalog(snapshot);
 
   return {
-    destinations: catalog.destinations.map((destination) => ({
+    destinations: [...catalog.destinations].sort(bySlug).map((destination) => ({
       destination,
       itineraryTitle:
         catalog.sampleItineraries.find((itinerary) =>
           itinerary.destinationIds.includes(destination.id),
         )?.title ?? null,
+      sampleDayCount: approvedSampleDayCount(snapshot, destination.id),
       cover: destinationCovers[destination.id] ?? null,
     })),
   };
@@ -131,15 +167,7 @@ export function getDestinationPage(
     catalog.sampleItineraries.find((item) => item.destinationIds.includes(destination.id)) ??
     null;
 
-  const dayIndexes = itinerary
-    ? [
-        ...new Set(
-          catalog.sampleItineraryItems
-            .filter((item) => item.itineraryId === itinerary.id && item.dayIndex !== null)
-            .map((item) => item.dayIndex as number),
-        ),
-      ].sort((left, right) => left - right)
-    : [];
+  const dayIndexes = itinerary ? scheduledDayIndexes(catalog, itinerary.id) : [];
 
   const days: DayView[] = itinerary
     ? dayIndexes.map((dayIndex) => ({
@@ -193,9 +221,12 @@ export function getDestinationPage(
   };
 }
 
-/** Synchronous slug list for the proxy and generateStaticParams. It does not open the database. */
-export function approvedDestinationSlugs(): string[] {
-  return approvedCatalog(getPrototypeCatalog()).destinations.map(
-    (destination) => destination.slug,
-  );
+function bySlug(left: { slug: string }, right: { slug: string }): number {
+  if (left.slug < right.slug) {
+    return -1;
+  }
+  if (left.slug > right.slug) {
+    return 1;
+  }
+  return 0;
 }

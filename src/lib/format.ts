@@ -1,3 +1,12 @@
+/** Label for an approved sample route. Zero days are omitted by the caller. */
+export function sampleDaysLabel(count: number, leading: "Read" | "The"): string {
+  if (leading === "Read") {
+    return count === 1 ? "Read the day" : `Read the ${count} days`;
+  }
+
+  return count === 1 ? "The day" : `The ${count} days`;
+}
+
 export function regionName(countryCode: string): string {
   const name = new Intl.DisplayNames(["en"], { type: "region" }).of(countryCode);
   return name && name !== countryCode ? name : countryCode;

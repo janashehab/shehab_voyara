@@ -10,7 +10,9 @@ import {
   type DynamicFact,
 } from "@/lib/catalog";
 
-import { approvedDestinationSlugs, getDestinationPage, getHomeFeature } from "./queries";
+import { sampleDaysLabel } from "@/lib/format";
+
+import { approvedSampleDayCount, getDestinationPage, getHomeFeature } from "./queries";
 
 const itineraryId = "itn_paris_three_day" as const;
 
@@ -56,7 +58,42 @@ test("public views follow the approved Paris fixture", () => {
     page.tips.map((tip) => tip.id),
     snapshot.tips.map((tip) => tip.id),
   );
-  assert.deepEqual(approvedDestinationSlugs(), ["paris"]);
+  assert.equal(approvedSampleDayCount(snapshot, "dst_paris"), 3);
+  assert.equal(feature.destinations[0]?.sampleDayCount, 3);
+  assert.equal(page.days.length, 3);
+  assert.equal(sampleDaysLabel(3, "The"), "The 3 days");
+  assert.equal(sampleDaysLabel(3, "Read"), "Read the 3 days");
+  assert.equal(getDestinationPage(snapshot, "not-a-place"), null);
+});
+
+test("sample day labels follow scheduled days and omit an unscheduled route", () => {
+  const oneDay = structuredClone(getPrototypeCatalog());
+
+  for (const item of oneDay.sampleItineraryItems) {
+    if (item.dayIndex !== null && item.dayIndex !== 1) {
+      item.dayIndex = null;
+    }
+  }
+
+  const oneDayCount = approvedSampleDayCount(oneDay, "dst_paris");
+
+  assert.ok(oneDayCount);
+  assert.equal(oneDayCount, 1);
+  assert.equal(getHomeFeature(oneDay).destinations[0]?.sampleDayCount, 1);
+  assert.equal(getDestinationPage(oneDay, "paris")?.days.length, 1);
+  assert.equal(sampleDaysLabel(oneDayCount, "Read"), "Read the day");
+  assert.equal(sampleDaysLabel(oneDayCount, "The"), "The day");
+  assert.equal(sampleDaysLabel(oneDayCount, "Read").includes("three"), false);
+
+  const unscheduled = structuredClone(getPrototypeCatalog());
+
+  for (const item of unscheduled.sampleItineraryItems) {
+    item.dayIndex = null;
+  }
+
+  assert.equal(approvedSampleDayCount(unscheduled, "dst_paris"), null);
+  assert.equal(getHomeFeature(unscheduled).destinations[0]?.sampleDayCount, null);
+  assert.equal(getDestinationPage(unscheduled, "paris")?.days.length, 0);
 });
 
 test("public views drop draft geography and historical prices", () => {
@@ -81,8 +118,43 @@ test("public views drop draft geography and historical prices", () => {
   assert.equal(rendered.includes("THB"), false);
   assert.equal(rendered.includes("18000"), false);
   assert.equal(rendered.includes("sty_ph_mazi_design_hotel"), false);
-  assert.deepEqual(approvedDestinationSlugs(), ["paris"]);
+  assert.equal(getDestinationPage(snapshot, "not-a-place"), null);
 });
+
+test("homepage destinations sort by slug and leave an unapproved destination out", () => {
+  const snapshot = structuredClone(getPrototypeCatalog());
+  snapshot.destinations = [
+    ...snapshot.destinations,
+    sampleDestination("dst_sample_zurich", "approved", "zurich", "Zurich"),
+    sampleDestination("dst_sample_amalfi", "approved", "amalfi", "Amalfi"),
+    sampleDestination("dst_bangkok", "draft", "bangkok", "Bangkok"),
+  ];
+
+  assert.deepEqual(
+    getHomeFeature(snapshot).destinations.map((item) => item.destination.slug),
+    ["amalfi", "paris", "zurich"],
+  );
+  assert.equal(getDestinationPage(snapshot, "bangkok"), null);
+  assert.ok(getDestinationPage(snapshot, "paris"));
+  assert.equal(getDestinationPage(snapshot, "amalfi")?.destination.name, "Amalfi");
+});
+
+function sampleDestination(
+  id: "dst_sample_zurich" | "dst_sample_amalfi" | "dst_bangkok",
+  status: "approved" | "draft",
+  slug: string,
+  name: string,
+): CatalogSnapshot["destinations"][number] {
+  return {
+    id,
+    status,
+    slug,
+    name,
+    countryCode: "ZZ",
+    editorialSummary: "Sample destination for the public list.",
+    vibeTags: [],
+  };
+}
 
 function contaminatedCatalog(): CatalogSnapshot {
   const snapshot = structuredClone(getPrototypeCatalog());

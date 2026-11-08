@@ -59,6 +59,15 @@ body {
   outline-offset: 3px;
 }
 
+#main:focus {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+details:not([open]) > :not(summary) {
+  display: none;
+}
+
 .hero-copy {
   background: linear-gradient(
     to top,
