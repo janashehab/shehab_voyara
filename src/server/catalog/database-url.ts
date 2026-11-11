@@ -32,6 +32,18 @@ export function runtimeConnectionUrl(value: string | undefined): string {
   }
   const port = url.port === "" ? "5432" : url.port;
   if (port === "6543" && url.searchParams.get("pgbouncer") !== "true") {
+    // Temporary production diagnostic. Facts only: no URL, host, user, or password.
+    console.error(
+      JSON.stringify({
+        source: "database-url",
+        databaseUrlExists: value !== undefined && value.trim() !== "",
+        portIs6543: port === "6543",
+        pgbouncerKeyExists: url.searchParams.has("pgbouncer"),
+        pgbouncerValueIsTrue: url.searchParams.get("pgbouncer") === "true",
+        vercelEnv: process.env.VERCEL_ENV ?? "unset",
+        deploymentId: process.env.VERCEL_DEPLOYMENT_ID ?? "unset",
+      }),
+    );
     throw new Error("DATABASE_URL on port 6543 must include pgbouncer=true.");
   }
   return connectionString;

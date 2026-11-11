@@ -186,6 +186,48 @@ test("migration and runtime URLs stay on IPv4 Supabase poolers", () => {
   );
 });
 
+test("runtime pooler URL accepts only an exact pgbouncer=true parameter", () => {
+  const host = "pooler.example.test";
+  const secret = "not-a-real-password";
+  const base = `postgresql://postgres.example:${secret}@${host}:6543/postgres`;
+  const logs: string[] = [];
+  const originalError = console.error;
+  const previousEnv = process.env.VERCEL_ENV;
+  const previousDeployment = process.env.VERCEL_DEPLOYMENT_ID;
+  console.error = (...args: unknown[]) => {
+    logs.push(args.map((arg) => String(arg)).join(" "));
+  };
+  process.env.VERCEL_ENV = "production";
+  process.env.VERCEL_DEPLOYMENT_ID = "dpl_diagnostic_test";
+
+  try {
+    for (const url of [
+      `${base}?pgbouncer=true`,
+      `${base}?sslmode=require&pgbouncer=true`,
+      `${base}?pgbouncer=true&sslmode=require`,
+    ]) {
+      assert.equal(runtimeConnectionUrl(url), url);
+    }
+    assert.equal(logs.length, 0);
+
+    for (const url of [
+      base,
+      `${base}?sslmode=require`,
+      `${base}?sslmode=require?pgbouncer=true`,
+      `${base}?PgBouncer=true`,
+    ]) {
+      assertMalformedPgbouncer(url, false, secret, host, logs);
+    }
+    for (const url of [`${base}?pgbouncer=True`, `${base}?pgbouncer="true"`, `${base}?pgbouncer=1`]) {
+      assertMalformedPgbouncer(url, true, secret, host, logs);
+    }
+  } finally {
+    console.error = originalError;
+    restoreProcessEnv("VERCEL_ENV", previousEnv);
+    restoreProcessEnv("VERCEL_DEPLOYMENT_ID", previousDeployment);
+  }
+});
+
 test("catalog seeding requires the owner session pooler", () => {
   const host = "aws-0-eu-central-1.pooler.supabase.com";
   const secret = "secret-token";
@@ -221,6 +263,43 @@ test("catalog seeding requires the owner session pooler", () => {
     (error: unknown) => secretSafe(error, /PostgreSQL connection URL/, secret, host, malformed),
   );
 });
+
+function assertMalformedPgbouncer(
+  url: string,
+  pgbouncerKeyExists: boolean,
+  secret: string,
+  host: string,
+  logs: string[],
+): void {
+  assert.throws(
+    () => runtimeConnectionUrl(url),
+    (error: unknown) => secretSafe(error, /DATABASE_URL on port 6543 must include pgbouncer=true/, secret, host, url),
+  );
+  const line = logs.at(-1);
+  assert.equal(typeof line, "string");
+  assert.equal(line?.includes(secret), false);
+  assert.equal(line?.includes(host), false);
+  assert.equal(line?.includes(url), false);
+  assert.equal(line?.includes("postgresql://"), false);
+  const diagnostic: unknown = JSON.parse(line ?? "");
+  assert.deepEqual(diagnostic, {
+    source: "database-url",
+    databaseUrlExists: true,
+    portIs6543: true,
+    pgbouncerKeyExists,
+    pgbouncerValueIsTrue: false,
+    vercelEnv: "production",
+    deploymentId: "dpl_diagnostic_test",
+  });
+}
+
+function restoreProcessEnv(name: "VERCEL_ENV" | "VERCEL_DEPLOYMENT_ID", previous: string | undefined): void {
+  if (previous === undefined) {
+    delete process.env[name];
+    return;
+  }
+  process.env[name] = previous;
+}
 
 function secretSafe(error: unknown, pattern: RegExp, secret: string, host: string, url?: string): boolean {
   assert.ok(error instanceof Error);
